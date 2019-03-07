@@ -84,22 +84,3 @@ class Network(object):
         if len(path) > 0:
             path = [currVertex] + path
         return path
-
-if __name__ == "__main__":
-    letters = string.ascii_uppercase
-    L = []
-    items = []
-    outerLoop,innerLoop = int(sys.argv[1]),int(sys.argv[2])
-    for source in range(outerLoop):
-        for dest in range(source+1,innerLoop):
-            r = random.randint(1,20)
-            items += [letters[source],letters[dest]]
-            L += [Edge(letters[source],letters[dest],r)]
-            r = random.randint(1,20)
-            items += [letters[dest],letters[source]]
-            L += [Edge(letters[dest],letters[source],r)]
-    graph = Network(L)
-
-    start = random.randint(0,len(L)-1)
-    end = random.randint(0,len(L)-1)
-    print(graph.dijkstra(L[start].sourceNode,L[end].sourceNode))
