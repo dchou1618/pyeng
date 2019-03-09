@@ -1,0 +1,7 @@
+<launch>
+	<node pkg = "nlpWorkspace" type = "mchainpublisher.py" name = "mchainpublisher">
+		<param name="textFile" value = "output.txt"/>
+	</node>
+	<node pkg = "nlpWorkspace" type = "mchainsubscriber.py" name = "mchainsubscriber" output="screen">
+	</node>
+</launch>
