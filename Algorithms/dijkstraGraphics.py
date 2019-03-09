@@ -13,9 +13,6 @@ def createNetwork(outerLoop=int(sys.argv[1]),innerLoop=int(sys.argv[2])):
             r = random.randint(1,20)
             items += [letters[source],letters[dest]]
             L += [Edge(letters[source],letters[dest],r)]
-            r = random.randint(1,20)
-            items += [letters[dest],letters[source]]
-            L += [Edge(letters[dest],letters[source],r)]
     network = Network(L)
     start = random.randint(0,len(L)-1)
     end = random.randint(0,len(L)-1)
@@ -23,12 +20,11 @@ def createNetwork(outerLoop=int(sys.argv[1]),innerLoop=int(sys.argv[2])):
     return items,L,dijkstraLst
 
 def init(data):
-    data.nodes,data.connections,data.dijkstra = createNetwork(12,11)
+    data.nodes,data.connections,data.dijkstra = createNetwork()
     data.cx,data.cy = data.width/2,data.height/2
     data.radius = min(data.width*0.40,data.height*0.40)
 
     data.size = 20
-    data.showPath = False
     data.outline = 3
     data.nodeTuples = dict()
     data.nodes = list(set(data.nodes))
@@ -40,9 +36,6 @@ def mousePressed(event,data): pass
 def keyPressed(event,data):
     if event.keysym == "r":
         init(data)
-    elif event.keysym == "space":
-        data.showPath = not data.showPath
-        data.colors = {data.nodes[i]:data.color for i in range(len(data.nodes))}
 def drawNode(canvas,data,cx,cy,r,label,i):
     canvas.create_oval(cx-r,cy-r,cx+r,cy+r,
                        fill=data.colors[data.nodes[i]],width=data.outline)
@@ -63,6 +56,9 @@ def drawConnections(canvas,data):
         x1,y1=sourceCoordinates
         x2,y2=destinationCoordinates
         canvas.create_line(x1,y1,x2,y2,width=data.outline)
+        xMid,yMid = (x1+x2)/2,(y1+y2)/2
+        canvas.create_text(xMid,yMid,text=str(edge.cost),
+                           font = "Helvetica "+str(int(data.width*0.05))+" bold")
 def drawPath(canvas,data):
     for i in range(1,len(data.dijkstra)):
         letter = data.dijkstra[i]
@@ -70,15 +66,13 @@ def drawPath(canvas,data):
         x1,y1=data.nodeTuples[letter]
         x2,y2=data.nodeTuples[prevLetter]
         canvas.create_line(x1,y1,x2,y2,fill="blue",width=data.outline)
-    try:
+    if len(data.dijkstra) > 0:
         data.colors[data.dijkstra[0]]= "red"
         data.colors[data.dijkstra[i]] = "green"
-    except:
-        init(data)
 def redrawAll(canvas,data):
     drawBasicNetwork(canvas,data)
     drawConnections(canvas,data)
-    if data.showPath: drawPath(canvas,data)
+    drawPath(canvas,data)
     drawBasicNetwork(canvas,data)
 ##############################################################################
 ##############################################################################
@@ -120,4 +114,4 @@ def run(width=300, height=300):
     root.mainloop()  # blocks until window is closed
 if __name__ == "__main__":
     width,height = int(sys.argv[3]),int(sys.argv[4])
-    run(width, height)
+    run(width,height)

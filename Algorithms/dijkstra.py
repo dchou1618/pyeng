@@ -54,7 +54,7 @@ class Network(object):
             priorVertices[vertex] = None
         return distances,priorVertices
     def getCurrVertex(self,distances,visitNodes):
-        minDist = float("inf")
+        minDist = float("inf"); currVertex = list(visitNodes)[0]
         for vertex in visitNodes:
             if distances[vertex] < minDist:
                 minDist = distances[vertex]
@@ -65,7 +65,6 @@ class Network(object):
         distances, priorVertices = self.distsVerts()
         distances[origin] = 0
         visitNodes = self.vertices.copy()
-
         while len(visitNodes)>0:
             currVertex = self.getCurrVertex(distances,visitNodes)
             if distances[currVertex] == defaultDist:
