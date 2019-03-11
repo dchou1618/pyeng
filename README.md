@@ -1,5 +1,5 @@
 # pyeng
-Practice with Python Data Science Stack, Data Engineering, Modeling, Algorithms
+Practice with Jupyter Notebook, Python, and Algorithms
 ## Description
 ### Algorithms
 #### Sentiment 
