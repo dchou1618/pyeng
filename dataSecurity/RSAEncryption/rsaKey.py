@@ -118,6 +118,7 @@ def main():
     try:
         assert(len(sys.argv) == 3)
         numBits,fileName = int(sys.argv[1]),sys.argv[2]
+        assert(numBits >= 11)
         rsa = RSASecure(numBits,fileName)
         rsa.generateKey()
         rsa.distributeKey()
