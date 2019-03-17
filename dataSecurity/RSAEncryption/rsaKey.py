@@ -30,7 +30,8 @@ class RSASecure(object):
     def __init__(self,numBits,fileName):
         self.numBits = numBits
         self.fileName = fileName
-
+    # finds two random prime numbers P,Q with the correct number of bits
+    # - adds to currVals dictionary the P,Q values
     def determinePQ(self):
         foundP = foundQ = False
         while not foundP:
@@ -75,7 +76,7 @@ class RSASecure(object):
         # writing to fileName
         self.dumpJson(self.fileName)
 
-    # writes to a json file
+    # writes currVals (keys) to a json file
     def dumpJson(self,fileName):
         try:
             outputFile = open(fileName,"wt")
@@ -83,14 +84,16 @@ class RSASecure(object):
             outputFile.close()
         except Exception as e:
             print("Exception {} occured".format(repr(e)))
-
+    # sends key to client while server running
     def distributeKey(self):
         try:
             # ./rsaServer.py run prior to running rsaKey.py
             mainClient(str(self.currVals))
         except Exception as e:
             print("Error: %s"%str(e))
-
+    # converts plaintxt from text file into ciphertext 
+    # where characters converted into ascii values & 
+    # val V V^e(mod phi)
     def encryptKey(self,plaintxt,ciphertxt):
         plainTxt = readFile(plaintxt)
         publicKey = self.currVals["PublicKey"]
@@ -100,7 +103,7 @@ class RSASecure(object):
             msgAddition = str(pow(ord(c),publicKey[1],publicKey[0]))+'\n'
             encrypted += msgAddition
         writeFile(ciphertxt,encrypted)
-
+    # descrypts the key using the private key pair
     def decryptKey(self,encryptxt,decryptxt):
         encryptedTxt = readSplitFile(encryptxt)
         privateKey = self.currVals["PrivateKey"]
@@ -110,7 +113,7 @@ class RSASecure(object):
             msg = chr(pow(int(part),privateKey[1],privateKey[0]))
             decrypted += msg
         writeFile(decryptxt,decrypted)
-
+    # getter method to obtain currVals from the class
     def getKeys(self):
         return self.currVals
 
