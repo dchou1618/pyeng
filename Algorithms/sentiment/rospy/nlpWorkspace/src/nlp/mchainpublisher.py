@@ -8,8 +8,7 @@ textFile = sys.argv[1]
 # using markovify to create markov chain from text
 def generateMarkovifyChain(text):
     text = open(text).read()
-    markovModel = markovify.Text(text,
-                                 retain_original = False)
+    markovModel = markovify.Text(text,retain_original = False)
     return markovModel.make_sentence()
 # publishing randomly generated sentences from topic "markovTalker" at 
 # frequency of 10 hz
