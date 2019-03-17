@@ -8,6 +8,9 @@ def mainServer():
     HOST, PORT = '127.0.0.1', 65432 # localhost & port to listen on
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # listens to host and port, accepting the socket listening on 
+            # then connects after accepting, receiving data and sending it to client.
+            # loop of receival and sending ensues
             s.bind((HOST, PORT))
             s.listen()
             conn, addr = s.accept()
