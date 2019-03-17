@@ -4,6 +4,7 @@ import dijkstra,math,sys,random,Tkinter as tk
 from Tkinter import *
 from dijkstra import *
 
+# generates a dijkstra network of arbitrary edges and connections
 def createNetwork(outerLoop=int(sys.argv[1]),innerLoop=int(sys.argv[2])):
     letters = string.ascii_uppercase
     L = []
@@ -49,6 +50,7 @@ def drawBasicNetwork(canvas,data):
         drawNode(canvas,data,x,y,data.size,data.nodes[i],i)
         data.nodeTuples[data.nodes[i]] = [x,y]
         initialAngle += dA
+# draws connections (lines) between edges in network 
 def drawConnections(canvas,data):
     for edge in data.connections:
         sourceCoordinates = data.nodeTuples[edge.sourceNode]
@@ -59,6 +61,7 @@ def drawConnections(canvas,data):
         xMid,yMid = (x1+x2)/2,(y1+y2)/2
         canvas.create_text(xMid,yMid,text=str(edge.cost),
                            font = "Helvetica "+str(int(data.width*0.05))+" bold")
+# draws final path returned in dijkstra algorithm
 def drawPath(canvas,data):
     for i in range(1,len(data.dijkstra)):
         letter = data.dijkstra[i]
@@ -66,9 +69,11 @@ def drawPath(canvas,data):
         x1,y1=data.nodeTuples[letter]
         x2,y2=data.nodeTuples[prevLetter]
         canvas.create_line(x1,y1,x2,y2,fill="blue",width=data.outline)
+    # start node begin red and end node being green
     if len(data.dijkstra) > 0:
         data.colors[data.dijkstra[0]]= "red"
         data.colors[data.dijkstra[i]] = "green"
+# draws the connections, path, network (twice to overlay the connections)
 def redrawAll(canvas,data):
     drawBasicNetwork(canvas,data)
     drawConnections(canvas,data)
@@ -76,6 +81,7 @@ def redrawAll(canvas,data):
     drawBasicNetwork(canvas,data)
 ##############################################################################
 ##############################################################################
+# generic graphics run function
 def run(width=300, height=300):
     def redrawAllWrapper(canvas, data):
         canvas.delete(ALL)
