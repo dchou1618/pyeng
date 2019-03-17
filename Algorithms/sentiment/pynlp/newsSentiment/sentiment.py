@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 '''(1) Preliminary Text Analysis'''
 ##############################################################################################################
 def wordcloud_draw(text, color = 'darkBlue'):
-    word = " ".join([word for word in text.split()])
-    # basic construction of wordcloud if word is clean text
-    if (not word.startswith("http")):
-        wordcloud = WordCloud(stopwords=STOPWORDS,background_color=color,width=2500,height=2000).generate(word)
+    words = " ".join([word for word in text.split()])
+    # basic construction of wordcloud if words in text are clean text
+    if (not words.startswith("http")):
+        wordcloud = WordCloud(stopwords=STOPWORDS,background_color=color,width=2500,height=2000).generate(words)
     plt.imshow(wordcloud, cmap=plt.cm.gray, interpolation='bilinear')
     plt.axis('off')
     plt.title("Most Common Words in Text")
