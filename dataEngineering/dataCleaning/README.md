@@ -2,6 +2,8 @@
 
 Exploration into ways to effectively clean data and ease the usage of machine learning algorithms.
 
+Corpus,Text Clean files in progress
+
 ## Reminders on Cleaning Steps
 
 * Structural Errors - Two of the same variable
