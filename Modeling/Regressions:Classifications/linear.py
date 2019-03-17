@@ -6,7 +6,6 @@ from numpy import *
 '''
 Dylan Chou
 dvchou
-CMU Stats and ML
 Simple/Multiple Linear Regression
 '''
 ###########################################################################
