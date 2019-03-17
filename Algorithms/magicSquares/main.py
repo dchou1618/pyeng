@@ -14,6 +14,7 @@ def init(data):
     data.highlighted = [data.num//2,data.num//2]
     data.magic = magicsquares.makeMagicSquare(data.num,1,1)
     data.changes = []
+# arrow keys to navigate magic squares grid
 def keyPressed(event,data):
     if event.keysym == "Up":
         data.highlighted[0] -= 1
@@ -36,6 +37,7 @@ def keyPressed(event,data):
         data.changes = []
     elif event.keysym == "r":
         init(data)
+        
 def getCellBounds(data,row,col):
     x1 = col*data.cols
     y1 = row*data.rows
@@ -51,6 +53,7 @@ def mousePressed(event,data):
         data.changes = data.changes[:index]+data.changes[index+1:]
     else:
         data.changes += [(row,col)]
+# draws magicsquares using makeMagicSquare function in magicsquares.py        
 def drawMagicBoard(canvas,data):
     data.progress = magicsquares.createBoard(data.num)
     data.colors = []
@@ -65,7 +68,7 @@ def drawMagicBoard(canvas,data):
                 lst.append("blue")
         data.colors.append(lst)
     data.magic = magicsquares.makeMagicSquare(data.num,1,1)
-
+    # highlights current highlighted cell by user
     for row in range(data.num):
         for col in range(data.num):
             if row == data.highlighted[0] and col == data.highlighted[1]:
@@ -81,6 +84,7 @@ def drawMagicBoard(canvas,data):
 def redrawAll(canvas,data):
     drawMagicBoard(canvas,data)
 
+# generic graphics run function
 def run(width=300, height=300):
     def redrawAllWrapper(canvas, data):
         canvas.delete(ALL)
@@ -97,7 +101,6 @@ def run(width=300, height=300):
         keyPressed(event, data)
         redrawAllWrapper(canvas, data)
 
-    # Set up data and call init
     class Struct(object): pass
     data = Struct()
     data.width = width
@@ -106,17 +109,14 @@ def run(width=300, height=300):
     root = Tk()
     root.resizable(width=False, height=False) # prevents resizing window
     init(data)
-    # create the root and the canvas
     canvas = Canvas(root, width=data.width, height=data.height)
     canvas.configure(bd=0, highlightthickness=0)
     canvas.pack()
-    # set up events
     root.bind("<Button-1>", lambda event:
                             mousePressedWrapper(event, canvas, data))
     root.bind("<Key>", lambda event:
                             keyPressedWrapper(event, canvas, data))
-    # and launch the app
-    root.mainloop()  # blocks until window is closed
+    root.mainloop()  
 if __name__ == "__main__":
     try:
         width = int(sys.argv[1])
