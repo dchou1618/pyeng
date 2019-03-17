@@ -12,7 +12,7 @@ def parsePower(s):
 
 xData = np.array([])
 yData = np.array([])
-
+# obtain data from input file and reformat runTime data
 try:
     for line in sys.stdin:
         line = line.split()
