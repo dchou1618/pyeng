@@ -41,6 +41,7 @@ def drawNode(canvas,data,cx,cy,r,label,i):
     canvas.create_oval(cx-r,cy-r,cx+r,cy+r,
                        fill=data.colors[data.nodes[i]],width=data.outline)
     canvas.create_text(cx,cy,text=str(label))
+# draws network as equally spaced nodes in circle
 def drawBasicNetwork(canvas,data):
     initialAngle = 0
     dA = 2*math.pi/len(data.nodes)
