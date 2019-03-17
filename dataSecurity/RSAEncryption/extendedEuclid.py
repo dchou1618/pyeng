@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+# implements algorithm to find x,y s.t. nx+my = gcd(n,m)
 def extendedEuclid(n,m):
     x1,y1,x2,y2 = 0,1,1,0
     while n != 0:
