@@ -50,7 +50,6 @@ def testStack():
     for i in range(10):
         stack1.push(random.randint(1,100))
     print("First Stack:",stack1)
-    # print(stack1.find(item))
 
 if __name__ == "__main__":
     testStack()
