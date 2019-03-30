@@ -1,15 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+# dependencies
 import numpy as np, pandas as pd, math, random, sys, time
 from sklearn import *
 from numpy import *
 ###########################################################################
 '''
-Dylan Chou
-dvchou
-Simple/Multiple Linear Regression
+Simple Linear Regression
 '''
 ###########################################################################
-class MyLinearRegression(object):
+class LinearRegression:
     """Base class for Linear Regressions"""
     def __init__(self,learning_rate,maxIterations):
     def predict(self,x):
@@ -17,4 +17,3 @@ class MyLinearRegression(object):
     def gradientDescent():
     def loss():
     def hypothesis():
-        
