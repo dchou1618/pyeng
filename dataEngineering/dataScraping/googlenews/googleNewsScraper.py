@@ -9,9 +9,9 @@ from wordcloud import *
 from PIL import Image
 from bs4 import BeautifulSoup
 # visualizations
-import geopandas as gpd
-import pysal as ps
-from pysal import contrib
+# import geopandas as gpd
+# import pysal as ps
+# from pysal import contrib
 # import mapping as maps
 
 headers = {'user-agent': 'Chrome/60.0.3112.90'}
@@ -132,5 +132,5 @@ def scrapeGoogleNews():
     gNews.findHeadlines()
     gNews.pageDiagnostics()
 
-# if __name__ == "__main__":
-#     scrapeGoogleNews()
+if __name__ == "__main__":
+    scrapeGoogleNews()
