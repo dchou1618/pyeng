@@ -16,4 +16,4 @@ jobs:
       with:
         context: .
         push: true
-        tags: your-docker-registry/your-image-name:latest
+        tags: dchou1618/pyeng:latest
