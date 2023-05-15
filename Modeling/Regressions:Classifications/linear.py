@@ -11,7 +11,7 @@ from numpy import *
 
 # csv example from https://www.kaggle.com/lava18/google-play-store-apps
 ###########################################################################
-'''Simple Linear Regression'''
+# Simple Linear Regression
 ###########################################################################
 
 class LinearRegression:

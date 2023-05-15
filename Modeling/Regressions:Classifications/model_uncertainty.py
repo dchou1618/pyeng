@@ -2,19 +2,23 @@
 import numpy as np
 import pandas as pd
 from sklearn import datasets
-
+import statsmodels.api as sm
 # For basic linear modelling 
 import tensorflow as tf
 import tensorflow_addons as tfa
 
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras import activations
 
 # Reducing the estimation of Pproj from P0
 # as a convex optimization problem.
 import cvxpy as cp
 from scipy.special import entr
+import os
 
+from scipy.stats import binom
+from functools import reduce
 
 class UncertaintyEstimator:
 	def __init__(self, model, train_data, test_data):
@@ -95,7 +99,67 @@ class DistributionInstability(UncertaintyEstimator):
 		obs_weights = [np.exp(lambda_vals.T @ (self.X[i, :]-first_moments)) for i in range(num_obs)]
 		projected_distribution_weights = obs_weights/np.sum(obs_weights)
 					
+def summary_table_to_df(table):
+	df = pd.DataFrame(table)
+	df.columns = [str(elem) for elem in df.iloc[0]]
+	df = df.iloc[1:]
+	print(df.columns, df)
+	df.set_index("",inplace=True)
+	return df
 
+class MCMC(UncertaintyEstimator):
+	"""
+	Markov Chain Monte Carlo (MCMC) can be used to sample from a target posterior
+	distribution that is difficult to sample directly.
+	"""
+	def __init__(self, model, train_data, test_data, target_var):
+		super().__init__(model, train_data, test_data)
+		logit_df = summary_table_to_df(self.model.summary().tables[-1])
+
+		input_df = self.train_data[self.train_data.columns[:-1]]
+		input_df.insert(loc=0, column='const', value=1)
+		self.input_df = input_df
+		
+		self.coefs = [float(str(elem)) for elem in logit_df.loc[:,"coef"].tolist()]
+		self.b = np.exp(self.coefs[0]+np.euler_gamma)
+		self.target_var = target_var
+
+	def run_mh_algorithm(self, n: int, b: int):
+		"""
+		run_mh_algorithm runs metropolis hastings after 
+		specifying a prior distribution of the parameters and 
+		runs monte carlo simulation to sample data points from the 
+		posterior.
+
+		For the multivariate case, we will 
+		have the proposal distribution be 
+		g(alpha, beta_1,...,beta_n) =
+			pi(alpha,b_hat=e^{alpha_hat+euler's constant})phi(beta_1)...phi(beta_n)
+		Each of the phi distributions would be gaussian distributions centered at
+		the estimated coefficient beta_i and standard error std_i.
+
+		"""
+		x = [[0 for col_idx in range(len(self.coefs))] for row_idx in range(n+b)]
+		print(self._get_posterior(self.coefs))
+	def _get_posterior(self, theta):
+		"""
+		_get_posterior - obtain the product of the likelihood
+		and prior to get posterior p(theta|x)p(theta).
+		p(theta|x) = p(x|theta)p(theta)/p(x)
+		"""
+		p_lst = self.input_df.apply(lambda row: np.exp(np.dot(theta, row.tolist()))/(1+np.exp(np.dot(theta, row.tolist() ))),
+							    axis=1).tolist()
+		
+		y = self.train_data[self.target_var].tolist()
+
+		# e^(sum of log probabilities)
+		likelihood = np.exp(sum([np.log(binom.pmf(y[i],n=1,p=prop)) for i, prop in enumerate(p_lst)]))
+		
+		dprior = reduce(lambda a,b:a*b, [(1/self.b)*np.exp(theta[0])]+[np.exp(-1*np.exp(theta[0])/self.b)]*(len(theta)-1))
+		print(likelihood*dprior)
+		return likelihood*dprior
+	def _get_proposal(self, theta):
+		pass		
 
 class ConformalPrediction(UncertaintyEstimator):
 	"""
@@ -169,7 +233,138 @@ def train_lm(input_matrix, output_matrix, loss_obj):
 
 	return model
 
+def train_logit_model(input_matrix, output_matrix):
+	normalizer = layers.Normalization(input_shape=[None,len(input_matrix[0])], axis=None)
+	normalizer.adapt(input_matrix)
+	model = tf.keras.Sequential([normalizer,
+							    layers.Dense(units=1, activation=activations.sigmoid)])
+	model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+				  loss="binary_crossentropy")
+	model.fit(input_matrix, output_matrix)
+	return model
+
+def fit_stats_logistic_model(input_matrix, output_matrix):
+	logit_model = sm.GLM(output_matrix, sm.add_constant(input_matrix), family=sm.families.Binomial())
+	logit_model = logit_model.fit(attach_wls=True, atol=1e-10)
+
+	return logit_model
+	
+
+def get_root_path(root_name):
+    dir_lst = os.getcwd().split("/")
+    idx = dir_lst.index(root_name)
+    return "/".join(dir_lst[:(idx+1)])
+
+
+
+def extract_pseudo_r2(table):
+	stats_df = pd.DataFrame(table)
+	stats_df[2] = stats_df[2].apply(str)
+	pseudo_r2 = stats_df.loc[stats_df[2]=="  Pseudo R-squ. (CS):", 3].iloc[0]
+	return float(str(pseudo_r2))
+
+def load_data_file(train_fpaths, test_fpaths, variable_names, target_var,
+				   threshold_na, mappings):
+	"""
+	load_data_file expects files in the .data format
+	that most often come from the UCI data repository.
+	"""
+	train_dfs, test_dfs = [], []
+	for fpath in train_fpaths:
+		with open(fpath) as f:
+			rows = []
+			for line in f.readlines():
+				rows.append([np.nan if elem == "?" else float(elem) for elem in line[:-1].split(",")])
+			
+			df = pd.DataFrame(data=rows,columns=variable_names)
+			df[target_var] = df[target_var].map({1:1,2:1,3:1,4:1,0:0})
+		train_dfs.append(df)
+	for fpath in test_fpaths:
+		with open(fpath) as f:
+			rows = []
+			for line in f.readlines():
+				rows.append([np.nan if elem == "?" else float(elem) for elem in line[:-1].split(",")])
+			df = pd.DataFrame(data=rows,columns=variable_names)
+			df[target_var] = df[target_var].map({1:1,2:1,3:1,4:1,0:0})
+		test_dfs.append(df)
+	train_df = pd.concat(train_dfs)
+	test_df = pd.concat(test_dfs)
+	# Complete case removal	
+	columns_to_drop = set()
+	for df in [train_df, test_df]:
+		na_df = df.isna().sum(axis=0).reset_index(name="NA count")
+
+		na_df = na_df[na_df["NA count"] >= threshold_na*len(df)]
+		columns_to_drop.update(na_df["index"].tolist())
+	columns_to_drop = list(columns_to_drop)
+	train_df = train_df.drop(columns_to_drop, axis=1)
+	test_df = test_df.drop(columns_to_drop, axis=1)
+	# Selecting the best feature set
+	curr_feature_set = []
+	
+	best_r2 = 0
+	for col in mappings:
+		mapping = mappings[col]
+		
+		if col in train_df.columns and col in test_df.columns:
+			train_df[col] = train_df[col].map(mapping)
+			test_df[col] = test_df[col].map(mapping)
+	train_df = pd.get_dummies(train_df, columns=list(mappings.keys()))
+	test_df = pd.get_dummies(test_df, columns=list(mappings.keys()))
+
+	features_to_consider = {col for col in train_df.columns if col != target_var}
+	all_features = list(features_to_consider)
+	while len(curr_feature_set) < len(train_df.columns)-1:
+		best_feature = None
+		for feature in features_to_consider:
+			curr_input = train_df[curr_feature_set+[feature]]
+			curr_output = train_df[target_var]
+			res = sm.GLM(curr_output, sm.add_constant(curr_input), family=sm.families.Binomial())
+			res = res.fit(attach_wls=True, atol=1e-10)
+				
+			pseudo_r2 = extract_pseudo_r2(res.summary().tables[0])
+			if len(curr_feature_set) == 0:
+				if pseudo_r2 > best_r2:
+					best_feature = feature
+					best_r2 = pseudo_r2
+			else:
+				multicollinear = False
+				for i in range(len(curr_input.columns)):
+					rhs = curr_input[list(curr_input.columns[:i])+list(curr_input.columns[(i+1):])]
+					lhs = curr_input[curr_input.columns[i]]
+					if type(lhs.dropna().iloc[0]) == str:
+						res = sm.MNLogit(lhs, sm.add_constant(rhs)).fit()
+						
+					else:
+						res = sm.GLM(lhs, sm.add_constant(rhs)).fit()
+					
+					pseudo_r2_i = extract_pseudo_r2(res.summary().tables[0])
+					if pseudo_r2_i == 1:
+						multicollinear = True
+						continue
+					vif = 1/(1-pseudo_r2_i)
+
+					if vif > 2:
+						multicollinear = True
+				
+				if not multicollinear:
+					if pseudo_r2 > best_r2:
+						best_feature = feature
+						best_r2 = pseudo_r2
+		if best_feature is None:
+			break
+		features_to_consider.remove(best_feature)
+		curr_feature_set.append(best_feature)
+	train_df = train_df[curr_feature_set+[target_var]]
+	test_df = test_df[curr_feature_set+[target_var]]
+
+	return train_df, test_df
+
 if __name__ == "__main__":
+	############################
+	# Uncertainty for regression
+	############################
+	'''
 	data = load_sample_data()
 	train_data, test_data = randomize_train_test(data, prop_train=0.8)
 	#print(f"Features: {', '.join(train_data.columns[:-1])}, Target: {train_data.columns[-1]}")
@@ -185,4 +380,41 @@ if __name__ == "__main__":
 	print("Estimating shift in parameters over a shifted distribution "+\
 		  "with older individuals with a higher bmi and bp than average"+" with only known first moments...")
 	di.plot_projected_uncertainty(first_moments)
+	'''
+	################################
+	# Uncertainty for classification
+	################################
+	rpath = get_root_path("pyeng")
+	mappings = {'sex':{1:"male",0:"female"},
+    'chest_pain_type':{1:"typical angina",2:"atypical angina",
+                       3:"non-anginal pain", 4: "asymptomatic"},
+                       'fasting_blood_sugar': {1: "above 120 mg/dl",
+                       0:"below or equal to 120 mg/dl"},
+                       'resting_ecg':{0:"normal",1:"S-T wave abnormality",
+                       2:"left ventricular hypertrophy"},
+       'exercise_induced_angina': {1:"exercise induced angina",
+        0: "exercise did not induce angina"}}
+
+	hd_train_data, hd_test_data = load_data_file([f"{rpath}/data/processed.cleveland.data"],
+							 [f"{rpath}/{path}" for path in ["data/processed.hungarian.data",
+							 "data/processed.switzerland.data",
+							 "data/processed.va.data"]],
+							 variable_names=["age","sex","chest_pain_type",
+							 "resting_blood_pressure","cholesterol",
+							 "fasting_blood_sugar","resting_ecg",
+							 "max_heart_rate","exercise_induced_angina",
+							 "depression_induced_by_exercise",
+							 "slope_of_peak_exercise",
+							 "number_of_colored_vessels",
+							 "defects","diagnosis"], target_var="diagnosis",
+							 threshold_na=0.50, mappings=mappings)
+	##
+	# Fitting statsmodel logistic regression for statistics 
+	# of the model parameters, including its variance.
+	##
+	hd_model = fit_stats_logistic_model(hd_train_data[hd_train_data.columns[:-1]], hd_train_data["diagnosis"])
+	
+	mcmc = MCMC(hd_model, hd_train_data, hd_test_data, target_var="diagnosis")	
+	mcmc.run_mh_algorithm(n=10000, b=1000)	
+	
 
