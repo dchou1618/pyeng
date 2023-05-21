@@ -1,6 +1,8 @@
 # Data Wrangling and Manipulation
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn import datasets
 import statsmodels.api as sm
 # For basic linear modelling 
@@ -487,6 +489,14 @@ if __name__ == "__main__":
 	print(hd_train_data)
 	print(hd_model.summary())
 	mcmc = MCMC(hd_model, hd_train_data[new_cols+["diagnosis"]], hd_test_data[new_cols+["diagnosis"]], target_var="diagnosis")	
-	print(mcmc.run_mh_algorithm(n=10000, b=5000))
-	
+	x, posterior_x, accepted_proportion = mcmc.run_mh_algorithm(n=10000, b=5000)
+	print(accepted_proportion)
+	for i, col in enumerate(mcmc.input_df.columns[:-1]):
+		curr_data = pd.DataFrame({"x": x[:, i]})
+		curr_data = curr_data.drop_duplicates()
+		print(curr_data)
+		plot = sns.histplot(data=curr_data, x="x", binwidth=3, kde=True)
+		fig = plot.get_figure()
+		fig.savefig(f"{col}_distribution.png")
+		
 
