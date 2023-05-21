@@ -18,6 +18,7 @@ from scipy.special import entr
 import os
 
 from scipy.stats import binom
+from scipy.stats import norm
 from functools import reduce
 
 class UncertaintyEstimator:
@@ -103,7 +104,7 @@ def summary_table_to_df(table):
 	df = pd.DataFrame(table)
 	df.columns = [str(elem) for elem in df.iloc[0]]
 	df = df.iloc[1:]
-	print(df.columns, df)
+
 	df.set_index("",inplace=True)
 	return df
 
@@ -116,11 +117,12 @@ class MCMC(UncertaintyEstimator):
 		super().__init__(model, train_data, test_data)
 		logit_df = summary_table_to_df(self.model.summary().tables[-1])
 
-		input_df = self.train_data[self.train_data.columns[:-1]]
+		input_df = self.train_data[self.train_data.columns]
 		input_df.insert(loc=0, column='const', value=1)
 		self.input_df = input_df
 		
 		self.coefs = [float(str(elem)) for elem in logit_df.loc[:,"coef"].tolist()]
+		self.vars = [float(str(elem)) for elem in logit_df.loc[:, "std err"].tolist() ]
 		self.b = np.exp(self.coefs[0]+np.euler_gamma)
 		self.target_var = target_var
 
@@ -137,29 +139,87 @@ class MCMC(UncertaintyEstimator):
 			pi(alpha,b_hat=e^{alpha_hat+euler's constant})phi(beta_1)...phi(beta_n)
 		Each of the phi distributions would be gaussian distributions centered at
 		the estimated coefficient beta_i and standard error std_i.
-
+		
+		Initial x0 are the coefficients in self.coefs.
 		"""
-		x = [[0 for col_idx in range(len(self.coefs))] for row_idx in range(n+b)]
-		print(self._get_posterior(self.coefs))
+		# print(self.vars)
+		x = np.array([[0 for col_idx in range(len(self.coefs))] for row_idx in range(n+b)],
+				     dtype=float)
+		x = np.reshape(x, (n+b, len(self.coefs)))
+		posterior_x = [0 for i in range(n+b)]
+
+		x[0] = self.coefs
+		posterior_x[0] = self._get_posterior(self.coefs)
+		accepted_count = 0
+		i = 1
+		while i < n+b:
+			print("Value of i: ", i)
+			x_prime = self._get_random_proposal()
+			
+			posterior_prime = self._get_posterior(x_prime)
+			
+			if posterior_prime == 0:
+				#print(x_prime)
+				#print(1/0)
+				continue
+			if self._get_proposal(x[(i-1)]) == 0:
+				#print(x_prime)
+				#print(1/0)
+				continue
+			if posterior_x[i-1] == 0:
+				#print(x_prime)
+				#print(1/0)
+				continue
+			if self._get_proposal(x_prime) == 0:
+				#print(x_prime)
+				#print(1/0)
+				continue
+			r = np.log(posterior_prime)+np.log(self._get_proposal(x[(i-1)]))-\
+				np.log(posterior_x[i-1])-np.log(self._get_proposal(x_prime))
+			acceptance_prob = min(np.exp(r),1)
+			print(r, acceptance_prob)
+			if np.random.uniform(0, 1) <= acceptance_prob:
+				accepted_count += 1
+				x[i,:] = x_prime
+				posterior_x[i] = posterior_prime
+			else:
+				x[i,:] = x[(i-1),:]
+				posterior_x[i] = posterior_x[i-1]
+			i += 1
+		#print(self._get_posterior(self.coefs))
+		#print(self._get_random_proposal())
+		return x, posterior_x, accepted_count/(n+b)
+	def _return_pi_alpha(self, theta):
+		return reduce(lambda a,b:a*b, [(1/self.b)*np.exp(theta[0])]+[np.exp(-1*np.exp(theta[0])/self.b)])
 	def _get_posterior(self, theta):
 		"""
 		_get_posterior - obtain the product of the likelihood
 		and prior to get posterior p(theta|x)p(theta).
 		p(theta|x) = p(x|theta)p(theta)/p(x)
 		"""
-		p_lst = self.input_df.apply(lambda row: np.exp(np.dot(theta, row.tolist()))/(1+np.exp(np.dot(theta, row.tolist() ))),
-							    axis=1).tolist()
 		
+		p_lst = self.input_df.loc[:, ~self.input_df.columns.isin({self.target_var})]\
+				.apply(lambda row: np.exp(np.dot(theta, row.tolist()))/(1+np.exp(np.dot(theta, row.tolist() ))),
+							    axis=1).tolist()
+		#print(p_lst, theta, self.input_df.iloc[0])
 		y = self.train_data[self.target_var].tolist()
 
 		# e^(sum of log probabilities)
 		likelihood = np.exp(sum([np.log(binom.pmf(y[i],n=1,p=prop)) for i, prop in enumerate(p_lst)]))
-		
-		dprior = reduce(lambda a,b:a*b, [(1/self.b)*np.exp(theta[0])]+[np.exp(-1*np.exp(theta[0])/self.b)]*(len(theta)-1))
-		print(likelihood*dprior)
+
+		dprior = self._return_pi_alpha(theta)
+		#print(likelihood, dprior)	
 		return likelihood*dprior
 	def _get_proposal(self, theta):
-		pass		
+		proposal_distribution = reduce(lambda a,b: a*b, [self._return_pi_alpha(theta)]+\
+								[norm.pdf(theta[i], self.coefs[i], self.vars[i]) for i in range(1,len(theta))])
+		
+		return proposal_distribution
+	def _get_random_proposal(self):
+		intercept = [np.log(np.random.exponential(scale=self.b))]
+		coefs = [np.random.normal(c,v) for c, v in zip(self.coefs[1:], self.vars[1:])]
+		#print(intercept, coefs, self.coefs)
+		return intercept+coefs
 
 class ConformalPrediction(UncertaintyEstimator):
 	"""
@@ -203,7 +263,7 @@ def load_sample_data():
 	diabetes_data = datasets.load_diabetes()
 	df = pd.DataFrame(diabetes_data["data"], columns=diabetes_data["feature_names"])
 
-	print(f"Correlation Matrix of sample data:\n{df.corr()}")
+	#print(f"Correlation Matrix of sample data:\n{df.corr()}")
 	df["target"] = diabetes_data["target"]
 	return df
 
@@ -246,8 +306,19 @@ def train_logit_model(input_matrix, output_matrix):
 def fit_stats_logistic_model(input_matrix, output_matrix):
 	logit_model = sm.GLM(output_matrix, sm.add_constant(input_matrix), family=sm.families.Binomial())
 	logit_model = logit_model.fit(attach_wls=True, atol=1e-10)
+	new_cols = input_matrix.columns.tolist()
 
-	return logit_model
+	df = summary_table_to_df(logit_model.summary().tables[-1] )
+	while len([x for x in df[df["P>|z|"].apply(lambda x:\
+			   float(str(x)) >= 0.10)].index.tolist() if str(x) != "const" ]) > 0:
+		sig_table = df[df["P>|z|"].apply(lambda x: float(str(x)) < 0.10)]
+		
+		new_cols = [str(x) for x in sig_table.index.tolist() if str(x) != "const"]
+		logit_model = sm.GLM(output_matrix, sm.add_constant(input_matrix[new_cols]), family=sm.families.Binomial())
+		logit_model = logit_model.fit(attach_wls=True, atol=1e-10)
+		df = summary_table_to_df(logit_model.summary().tables[-1] )
+
+	return new_cols, logit_model
 	
 
 def get_root_path(root_name):
@@ -412,9 +483,10 @@ if __name__ == "__main__":
 	# Fitting statsmodel logistic regression for statistics 
 	# of the model parameters, including its variance.
 	##
-	hd_model = fit_stats_logistic_model(hd_train_data[hd_train_data.columns[:-1]], hd_train_data["diagnosis"])
-	
-	mcmc = MCMC(hd_model, hd_train_data, hd_test_data, target_var="diagnosis")	
-	mcmc.run_mh_algorithm(n=10000, b=1000)	
+	new_cols, hd_model = fit_stats_logistic_model(hd_train_data[hd_train_data.columns[:-1]], hd_train_data["diagnosis"])
+	print(hd_train_data)
+	print(hd_model.summary())
+	mcmc = MCMC(hd_model, hd_train_data[new_cols+["diagnosis"]], hd_test_data[new_cols+["diagnosis"]], target_var="diagnosis")	
+	print(mcmc.run_mh_algorithm(n=10000, b=5000))
 	
 
