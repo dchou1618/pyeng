@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import plotly.express as px
 import matplotlib.pyplot as plt
 from sklearn import datasets
 import statsmodels.api as sm
@@ -123,6 +124,10 @@ class MCMC(UncertaintyEstimator):
 		input_df.insert(loc=0, column='const', value=1)
 		self.input_df = input_df
 		
+		test_df = self.test_data[self.test_data.columns]
+		test_df.insert(loc=0, column="const", value=1)
+		self.test_df = test_df
+
 		self.coefs = [float(str(elem)) for elem in logit_df.loc[:,"coef"].tolist()]
 		self.vars = [float(str(elem)) for elem in logit_df.loc[:, "std err"].tolist() ]
 		self.b = np.exp(self.coefs[0]+np.euler_gamma)
@@ -144,7 +149,7 @@ class MCMC(UncertaintyEstimator):
 		
 		Initial x0 are the coefficients in self.coefs.
 		"""
-		# print(self.vars)
+		
 		x = np.array([[0 for col_idx in range(len(self.coefs))] for row_idx in range(n+b)],
 				     dtype=float)
 		x = np.reshape(x, (n+b, len(self.coefs)))
@@ -161,25 +166,17 @@ class MCMC(UncertaintyEstimator):
 			posterior_prime = self._get_posterior(x_prime)
 			
 			if posterior_prime == 0:
-				#print(x_prime)
-				#print(1/0)
 				continue
 			if self._get_proposal(x[(i-1)]) == 0:
-				#print(x_prime)
-				#print(1/0)
 				continue
 			if posterior_x[i-1] == 0:
-				#print(x_prime)
-				#print(1/0)
 				continue
 			if self._get_proposal(x_prime) == 0:
-				#print(x_prime)
-				#print(1/0)
 				continue
 			r = np.log(posterior_prime)+np.log(self._get_proposal(x[(i-1)]))-\
 				np.log(posterior_x[i-1])-np.log(self._get_proposal(x_prime))
 			acceptance_prob = min(np.exp(r),1)
-			print(r, acceptance_prob)
+			# print(r, acceptance_prob)
 			if np.random.uniform(0, 1) <= acceptance_prob:
 				accepted_count += 1
 				x[i,:] = x_prime
@@ -188,8 +185,7 @@ class MCMC(UncertaintyEstimator):
 				x[i,:] = x[(i-1),:]
 				posterior_x[i] = posterior_x[i-1]
 			i += 1
-		#print(self._get_posterior(self.coefs))
-		#print(self._get_random_proposal())
+
 		return x, posterior_x, accepted_count/(n+b)
 	def _return_pi_alpha(self, theta):
 		return reduce(lambda a,b:a*b, [(1/self.b)*np.exp(theta[0])]+[np.exp(-1*np.exp(theta[0])/self.b)])
@@ -203,14 +199,14 @@ class MCMC(UncertaintyEstimator):
 		p_lst = self.input_df.loc[:, ~self.input_df.columns.isin({self.target_var})]\
 				.apply(lambda row: np.exp(np.dot(theta, row.tolist()))/(1+np.exp(np.dot(theta, row.tolist() ))),
 							    axis=1).tolist()
-		#print(p_lst, theta, self.input_df.iloc[0])
+
 		y = self.train_data[self.target_var].tolist()
 
 		# e^(sum of log probabilities)
 		likelihood = np.exp(sum([np.log(binom.pmf(y[i],n=1,p=prop)) for i, prop in enumerate(p_lst)]))
 
 		dprior = self._return_pi_alpha(theta)
-		#print(likelihood, dprior)	
+
 		return likelihood*dprior
 	def _get_proposal(self, theta):
 		proposal_distribution = reduce(lambda a,b: a*b, [self._return_pi_alpha(theta)]+\
@@ -433,6 +429,33 @@ def load_data_file(train_fpaths, test_fpaths, variable_names, target_var,
 
 	return train_df, test_df
 
+
+def obtain_probability_dist(row, x):
+	return 1-(1/(1+np.exp(list(reduce(lambda x,y: np.add(x,y),
+								([row[i]*x[:, i] for i in range(len(row))]) ) ))))
+
+
+def export_uncertainty(row, x, coefs):
+	row_num = row.name
+	diagnosis = "Has heart disease" if row["diagnosis"] == 1 else "Does not have heart disease"
+
+	row = row.tolist()[:-1]
+	prob_dist = obtain_probability_dist(row, x)
+
+	curr_data = pd.DataFrame({"x": prob_dist})
+	curr_data = curr_data.drop_duplicates().reset_index(drop=True)
+	fig = px.histogram(curr_data, x="x", nbins=20,
+                       color_discrete_sequence=['firebrick'])
+	fig.update_traces(marker_line_width=2,marker_line_color="black")
+	predicted_prob = np.exp(np.dot(coefs, row))/(1+np.exp(np.dot(coefs, row) ) )
+
+	fig.add_vline(x=predicted_prob, line_width=3, line_dash="dash", line_color="green",
+				  annotation_text=f"Predicted Probability: {predicted_prob}")
+
+
+	fig.update_layout(title=f"Predicted Probability Distribution of Heart Disease for Subject {row_num}: {diagnosis}")
+	fig.write_html(f"./data/probability_distribution_{row_num}.html")
+
 if __name__ == "__main__":
 	############################
 	# Uncertainty for regression
@@ -486,17 +509,9 @@ if __name__ == "__main__":
 	# of the model parameters, including its variance.
 	##
 	new_cols, hd_model = fit_stats_logistic_model(hd_train_data[hd_train_data.columns[:-1]], hd_train_data["diagnosis"])
-	print(hd_train_data)
-	print(hd_model.summary())
+	
 	mcmc = MCMC(hd_model, hd_train_data[new_cols+["diagnosis"]], hd_test_data[new_cols+["diagnosis"]], target_var="diagnosis")	
-	x, posterior_x, accepted_proportion = mcmc.run_mh_algorithm(n=10000, b=5000)
-	print(accepted_proportion)
-	for i, col in enumerate(mcmc.input_df.columns[:-1]):
-		curr_data = pd.DataFrame({"x": x[:, i]})
-		curr_data = curr_data.drop_duplicates()
-		print(curr_data)
-		plot = sns.histplot(data=curr_data, x="x", binwidth=3, kde=True)
-		fig = plot.get_figure()
-		fig.savefig(f"{col}_distribution.png")
-		
+	x, posterior_x, accepted_proportion = mcmc.run_mh_algorithm(n=10000, b=10000)
+	
 
+	mcmc.test_df.apply(lambda row: export_uncertainty(row, x, mcmc.coefs), axis=1)
