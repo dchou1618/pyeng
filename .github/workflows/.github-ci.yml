@@ -9,10 +9,10 @@ jobs:
     runs-on: macos-latest
 
     steps:
-	  - name: Checkout code
-	 	uses: actions/checkout@v2
-	  - name: Install docker
-		run: brew install docker
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install docker
+        run: brew install docker
 
       - name: Build Docker image
         run: docker build --tag dchou1618/pyeng:latest --file Dockerfile .
