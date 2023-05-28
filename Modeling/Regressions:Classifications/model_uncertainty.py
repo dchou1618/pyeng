@@ -148,6 +148,9 @@ class MCMC(UncertaintyEstimator):
 		the estimated coefficient beta_i and standard error std_i.
 		
 		Initial x0 are the coefficients in self.coefs.
+
+		If detailed balance holds in the data, we can substitute the posteriors with
+		the stationary probabilities..
 		"""
 		
 		x = np.array([[0 for col_idx in range(len(self.coefs))] for row_idx in range(n+b)],
@@ -216,27 +219,7 @@ class MCMC(UncertaintyEstimator):
 	def _get_random_proposal(self):
 		intercept = [np.log(np.random.exponential(scale=self.b))]
 		coefs = [np.random.normal(c,v) for c, v in zip(self.coefs[1:], self.vars[1:])]
-		#print(intercept, coefs, self.coefs)
 		return intercept+coefs
-
-class ConformalPrediction(UncertaintyEstimator):
-	"""
-	Conformal Prediction is a way of estimating the uncertainty in model
-	predictions that is distribution-free and has guarantees on coverage.
-
-	Implementation based on http://people.eecs.berkeley.edu/~angelopoulos/publications/downloads/gentle_intro_conformal_dfuq.pdf
-	
-	In the case of predicting diabetes scores, we will be using conformal quantile 
-	regression, followed by inflation/deflation of the bounds depending on relative locations of predicted scores in 
-	the calibration dataset.
-	"""
-	def __init__(self, model, train_data, test_data, lower_model, upper_model):
-		super().__init__(model, train_data, test_data)
-		self.lower_model = lower_model
-		self.upper_model = upper_model
-	def estimate_bounds(self):
-		pass
-
 
 def load_sample_data():
 	"""
