@@ -19,5 +19,5 @@ jobs:
         run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Push Docker image to Docker Hub
-        run: docker push your-registry/your-image-name:latest
+        run: docker push dchou1618/pyeng:latest
 
