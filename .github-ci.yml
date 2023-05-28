@@ -26,5 +26,5 @@ jobs:
 			  	context: .
           		file: ./Dockerfile
           		push: true
-          		tags: ${{ steps.meta.outputs.tags }}
+          		tags: dchou1618/pyeng:${{ steps.meta.outputs.tags }}
           		labels: ${{ steps.meta.outputs.labels }}
