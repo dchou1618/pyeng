@@ -18,5 +18,3 @@ Basic graphics display of plot of runtimes against input sizes for a function
 Basic graphics of generating n by n magicsquares controlled by user (Press t to augment magicsquare grid to n+1 by n+1 and r to reset grid)
 ### Modeling 
 Planning on implementing more mathematically-driven regression classes.
-## Future Direction 
-I plan on adding more repositories containing jupyter notebooks of data engineering on kaggle datasets or data from online databases. Will be centered more around algorithms and data engineering. 
